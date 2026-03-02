@@ -68,45 +68,64 @@ def telegram_request(token: str, method: str, **kwargs) -> dict | None:
 
 
 def fetch_bid_detail(api_key: str, bid_no: str, bid_ord: str) -> dict | None:
-    """나라장터 API에서 공고 상세 정보를 조회합니다."""
-    params = {
-        "ServiceKey": api_key,
-        "pageNo": 1,
-        "numOfRows": 100,
-        "inqryDiv": "1",
-        "inqryBgnDt": "202601010000",
-        "inqryEndDt": "202612312359",
-        "type": "json",
-    }
+    """나라장터 API에서 공고 상세 정보를 조회합니다.
 
-    try:
-        resp = requests.get(NARA_API_URL, params=params, timeout=30)
-        data = resp.json()
-        items = data.get("response", {}).get("body", {}).get("items", [])
-        if isinstance(items, dict):
-            items = [items]
+    점진적으로 검색 범위를 넓히며 페이지네이션으로 특정 공고를 찾습니다.
+    """
+    from datetime import datetime, timedelta
 
-        for item in items:
-            if item.get("bidNtceNo") == bid_no and item.get("bidNtceOrd") == bid_ord:
-                return item
-    except Exception as e:
-        logger.error(f"API 조회 실패: {e}")
+    now = datetime.now()
 
-    # 넓은 범위로 다시 조회
-    try:
-        params["inqryBgnDt"] = "202501010000"
-        resp = requests.get(NARA_API_URL, params=params, timeout=30)
-        data = resp.json()
-        items = data.get("response", {}).get("body", {}).get("items", [])
-        if isinstance(items, dict):
-            items = [items]
+    # 점진적으로 범위를 넓혀가며 검색 (3일 → 14일 → 60일)
+    search_ranges = [3, 14, 60]
 
-        for item in items:
-            if item.get("bidNtceNo") == bid_no:
-                return item
-    except Exception as e:
-        logger.error(f"API 재조회 실패: {e}")
+    for days in search_ranges:
+        start_dt = (now - timedelta(days=days)).strftime("%Y%m%d%H%M")
+        end_dt = now.strftime("%Y%m%d%H%M")
 
+        logger.info(f"공고 {bid_no} 검색 중 (최근 {days}일)...")
+
+        page = 1
+        while page <= 20:  # 최대 20페이지 (약 20,000건)
+            params = {
+                "ServiceKey": api_key,
+                "pageNo": page,
+                "numOfRows": 999,
+                "inqryDiv": "1",
+                "inqryBgnDt": start_dt,
+                "inqryEndDt": end_dt,
+                "type": "json",
+            }
+
+            try:
+                resp = requests.get(NARA_API_URL, params=params, timeout=30)
+                data = resp.json()
+                body = data.get("response", {}).get("body", {})
+                total_count = int(body.get("totalCount", 0))
+                items = body.get("items", [])
+
+                if isinstance(items, dict):
+                    items = [items]
+
+                if not items:
+                    break
+
+                for item in items:
+                    if item.get("bidNtceNo") == bid_no:
+                        if item.get("bidNtceOrd") == bid_ord or bid_ord == "000":
+                            logger.info(f"공고 {bid_no} 발견 (페이지 {page})")
+                            return item
+
+                # 모든 페이지를 확인했으면 다음 범위로
+                if page * 999 >= total_count:
+                    break
+                page += 1
+
+            except Exception as e:
+                logger.error(f"API 조회 실패 (페이지 {page}): {e}")
+                break
+
+    logger.warning(f"공고 {bid_no} 찾을 수 없음")
     return None
 
 
