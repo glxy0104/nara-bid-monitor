@@ -1,0 +1,34 @@
+# 나라장터 입찰공고 모니터링 설정 (템플릿)
+# 이 파일을 config.yaml로 복사한 뒤 값을 채워주세요.
+
+api_key: "YOUR_API_KEY_HERE"
+
+keywords:
+  - "영상 제작"
+  - "영상제작"
+  - "홍보영상"
+  - "영상 촬영"
+  - "영상촬영"
+  - "영상물 제작"
+  - "영상콘텐츠"
+  - "영상 콘텐츠"
+
+exclude_keywords: []
+bid_type: "services"
+check_hours: 24
+schedule_interval_minutes: 30
+
+notification:
+  macos:
+    enabled: true
+  telegram:
+    enabled: true
+    bot_token: "YOUR_BOT_TOKEN_HERE"
+    chat_id: "YOUR_CHAT_ID_HERE"
+  slack:
+    enabled: false
+    webhook_url: ""
+  email:
+    enabled: false
+
+db_path: "bid_history.db"

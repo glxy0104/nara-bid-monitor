@@ -1,0 +1,29 @@
+name: 나라장터 입찰공고 모니터링
+
+on:
+  schedule:
+    # 매일 오전 9시 KST (= 0시 UTC)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 수동 실행도 가능
+
+jobs:
+  check-bids:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run monitor
+        env:
+          NARA_API_KEY: ${{ secrets.NARA_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python run.py --hours 24

@@ -1,0 +1,8 @@
+config.yaml
+bid_history.db
+venv/
+__pycache__/
+*.pyc
+cron.log
+monitor.log
+.DS_Store
