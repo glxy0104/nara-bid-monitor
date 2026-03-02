@@ -13,7 +13,14 @@ keywords:
   - "영상콘텐츠"
   - "영상 콘텐츠"
 
-exclude_keywords: []
+exclude_keywords:
+  - "항공정사영상"
+  - "항공영상"
+  - "정사영상"
+  - "3차원 공간정보"
+  - "수치영상"
+  - "위성영상"
+  - "CCTV"
 bid_type: "services"
 check_hours: 24
 schedule_interval_minutes: 30

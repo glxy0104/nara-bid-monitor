@@ -108,12 +108,27 @@ class TelegramNotifier:
                 f"🔗 <a href=\"{info['URL']}\">공고 상세보기</a>"
             )
 
+            bid_no = bid.get("bidNtceNo", "")
+            bid_ord = bid.get("bidNtceOrd", "000")
+
             url = self.SEND_URL.format(token=self.bot_token)
             payload = {
                 "chat_id": self.chat_id,
                 "text": text,
                 "parse_mode": "HTML",
                 "disable_web_page_preview": False,
+                "reply_markup": {
+                    "inline_keyboard": [[
+                        {
+                            "text": "📋 상세 정보",
+                            "callback_data": f"detail:{bid_no}:{bid_ord}",
+                        },
+                        {
+                            "text": "🔗 나라장터에서 보기",
+                            "url": info["URL"],
+                        },
+                    ]]
+                },
             }
 
             try:
