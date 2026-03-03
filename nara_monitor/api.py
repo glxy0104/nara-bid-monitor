@@ -164,7 +164,7 @@ def filter_bids_by_keywords(
 
     Args:
         bids: 입찰공고 목록
-        keywords: 포함 키워드 (하나라도 포함되면 매칭)
+        keywords: 포함 키워드 (모든 키워드가 포함되어야 매칭 - AND 조건)
         exclude_keywords: 제외 키워드 (하나라도 포함되면 제외)
 
     Returns:
@@ -187,8 +187,8 @@ def filter_bids_by_keywords(
         if any(kw.lower() in bid_name_lower for kw in exclude_keywords):
             continue
 
-        # 포함 키워드 확인
-        if any(kw.lower() in bid_name_lower for kw in keywords):
+        # 포함 키워드 확인 (모든 키워드가 포함되어야 매칭)
+        if all(kw.lower() in bid_name_lower for kw in keywords):
             matched.append(bid)
 
     return matched

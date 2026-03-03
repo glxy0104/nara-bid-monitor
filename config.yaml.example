@@ -3,24 +3,12 @@
 
 api_key: "YOUR_API_KEY_HERE"
 
+# 검색 키워드 (AND 조건: 모든 키워드가 공고명에 포함되어야 매칭)
 keywords:
-  - "영상 제작"
-  - "영상제작"
-  - "홍보영상"
-  - "영상 촬영"
-  - "영상촬영"
-  - "영상물 제작"
-  - "영상콘텐츠"
-  - "영상 콘텐츠"
+  - "영상"
+  - "제작"
 
-exclude_keywords:
-  - "항공정사영상"
-  - "항공영상"
-  - "정사영상"
-  - "3차원 공간정보"
-  - "수치영상"
-  - "위성영상"
-  - "CCTV"
+exclude_keywords: []
 bid_type: "services"
 check_hours: 24
 schedule_interval_minutes: 30
