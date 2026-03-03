@@ -87,45 +87,88 @@ class TelegramNotifier:
         self.bot_token = bot_token
         self.chat_id = chat_id
 
+    def _format_detail_price(self, value) -> str:
+        """상세 가격 포맷 (원 단위 포함)."""
+        if not value:
+            return "-"
+        try:
+            num = int(float(str(value)))
+            if num >= 100_000_000:
+                return f"{num / 100_000_000:.1f}억원 ({num:,}원)"
+            elif num >= 10_000:
+                return f"{num / 10_000:,.0f}만원 ({num:,}원)"
+            else:
+                return f"{num:,}원"
+        except (ValueError, TypeError):
+            return str(value)
+
+    def _format_detail_message(self, bid: dict) -> str:
+        """공고 상세 정보를 메시지로 포맷합니다."""
+        detail_url = get_bid_detail_url(bid)
+
+        # 첨부 문서 수집
+        docs = []
+        for i in range(1, 11):
+            url = bid.get(f"ntceSpecDocUrl{i}", "")
+            name = bid.get(f"ntceSpecFileNm{i}", "")
+            if url and name:
+                docs.append(f'  📎 <a href="{url}">{name}</a>')
+        docs_text = "\n".join(docs) if docs else "  (첨부 문서 없음)"
+
+        return (
+            f"🔔 <b>나라장터 입찰공고</b>\n"
+            f"\n"
+            f"📌 <b>{bid.get('bidNtceNm', '')}</b>\n"
+            f"\n"
+            f"<b>▸ 기본 정보</b>\n"
+            f"  • 공고번호: {bid.get('bidNtceNo', '')}-{bid.get('bidNtceOrd', '')}\n"
+            f"  • 공고종류: {bid.get('ntceKindNm', '')}\n"
+            f"  • 용역구분: {bid.get('srvceDivNm', '')}\n"
+            f"\n"
+            f"<b>▸ 기관 정보</b>\n"
+            f"  • 공고기관: {bid.get('ntceInsttNm', '')}\n"
+            f"  • 수요기관: {bid.get('dminsttNm', '')}\n"
+            f"  • 담당자: {bid.get('ntceInsttOfclNm', '')} ({bid.get('ntceInsttOfclTelNo', '')})\n"
+            f"\n"
+            f"<b>▸ 금액 정보</b>\n"
+            f"  • 배정예산: {self._format_detail_price(bid.get('asignBdgtAmt', ''))}\n"
+            f"  • 추정가격: {self._format_detail_price(bid.get('presmptPrce', ''))}\n"
+            f"\n"
+            f"<b>▸ 입찰 정보</b>\n"
+            f"  • 계약방법: {bid.get('cntrctCnclsMthdNm', '')}\n"
+            f"  • 낙찰방법: {bid.get('sucsfbidMthdNm', '')}\n"
+            f"  • 입찰방식: {bid.get('bidMethdNm', '')}\n"
+            f"\n"
+            f"<b>▸ 일정</b>\n"
+            f"  • 공고일시: {bid.get('bidNtceDt', '')}\n"
+            f"  • 입찰마감: {bid.get('bidClseDt', '')}\n"
+            f"  • 개찰일시: {bid.get('opengDt', '')}\n"
+            f"\n"
+            f"<b>▸ 첨부 문서</b>\n"
+            f"{docs_text}\n"
+            f"\n"
+            f'🔗 <a href="{detail_url}">나라장터에서 보기</a>'
+        )
+
     def notify(self, bids: list[dict]) -> None:
         if not bids:
             return
 
         for bid in bids:
-            info = format_bid_summary(bid)
-            text = (
-                f"🔔 <b>나라장터 입찰공고</b>\n"
-                f"\n"
-                f"📌 <b>{info['공고명']}</b>\n"
-                f"\n"
-                f"▪️ 공고기관: {info['공고기관']}\n"
-                f"▪️ 수요기관: {info['수요기관']}\n"
-                f"▪️ 추정가격: {info['추정가격']}\n"
-                f"▪️ 배정예산: {info['배정예산']}\n"
-                f"▪️ 계약방법: {info['계약방법']}\n"
-                f"▪️ 마감일시: {info['마감일시']}\n"
-                f"\n"
-                f"🔗 <a href=\"{info['URL']}\">공고 상세보기</a>"
-            )
-
-            bid_no = bid.get("bidNtceNo", "")
-            bid_ord = bid.get("bidNtceOrd", "000")
+            text = self._format_detail_message(bid)
+            detail_url = get_bid_detail_url(bid)
 
             url = self.SEND_URL.format(token=self.bot_token)
             payload = {
                 "chat_id": self.chat_id,
                 "text": text,
                 "parse_mode": "HTML",
-                "disable_web_page_preview": False,
+                "disable_web_page_preview": True,
                 "reply_markup": {
                     "inline_keyboard": [[
                         {
-                            "text": "📋 상세 정보",
-                            "callback_data": f"detail:{bid_no}:{bid_ord}",
-                        },
-                        {
                             "text": "🔗 나라장터에서 보기",
-                            "url": info["URL"],
+                            "url": detail_url,
                         },
                     ]]
                 },
@@ -134,7 +177,7 @@ class TelegramNotifier:
             try:
                 resp = requests.post(url, json=payload, timeout=10)
                 resp.raise_for_status()
-                logger.info(f"Telegram 알림 전송: {info['공고명']}")
+                logger.info(f"Telegram 알림 전송: {bid.get('bidNtceNm', '')}")
             except requests.RequestException as e:
                 logger.error(f"Telegram 알림 실패: {e}")
 
