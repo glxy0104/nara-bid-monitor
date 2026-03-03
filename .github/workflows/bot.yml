@@ -2,8 +2,8 @@ name: Telegram 봇 요청 처리
 
 on:
   schedule:
-    # 매 15분마다 실행
-    - cron: '*/15 * * * *'
+    # 매 5분마다 실행
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:

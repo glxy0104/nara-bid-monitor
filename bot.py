@@ -207,13 +207,15 @@ def handle_callback(token: str, api_key: str, callback_query: dict) -> None:
     data = callback_query.get("data", "")
     chat_id = callback_query.get("message", {}).get("chat", {}).get("id")
 
-    # 콜백 응답 (로딩 표시 제거)
+    if not data.startswith("detail:"):
+        telegram_request(token, "answerCallbackQuery",
+                         callback_query_id=callback_id)
+        return
+
+    # 콜백 응답 (로딩 표시 제거) — 실패해도 무시 (오래된 콜백일 수 있음)
     telegram_request(token, "answerCallbackQuery",
                      callback_query_id=callback_id,
                      text="상세 정보를 불러오는 중...")
-
-    if not data.startswith("detail:"):
-        return
 
     parts = data.replace("detail:", "").split(":")
     bid_no = parts[0]
@@ -221,17 +223,31 @@ def handle_callback(token: str, api_key: str, callback_query: dict) -> None:
 
     logger.info(f"상세 조회 요청: {bid_no}-{bid_ord}")
 
+    # "조회 중" 메시지를 먼저 보내서 사용자에게 즉시 피드백
+    loading_msg = telegram_request(token, "sendMessage",
+                                   chat_id=chat_id,
+                                   text=f"🔍 공고 {bid_no} 상세 정보 조회 중...")
+
     bid = fetch_bid_detail(api_key, bid_no, bid_ord)
     if bid:
         text = format_detail_message(bid)
     else:
         text = f"❌ 공고 {bid_no} 상세 정보를 찾을 수 없습니다.\n나라장터에서 직접 확인해주세요."
 
-    telegram_request(token, "sendMessage",
-                     chat_id=chat_id,
-                     text=text,
-                     parse_mode="HTML",
-                     disable_web_page_preview=True)
+    # 조회 완료 후 "조회 중" 메시지를 상세 정보로 교체
+    if loading_msg and loading_msg.get("message_id"):
+        telegram_request(token, "editMessageText",
+                         chat_id=chat_id,
+                         message_id=loading_msg["message_id"],
+                         text=text,
+                         parse_mode="HTML",
+                         disable_web_page_preview=True)
+    else:
+        telegram_request(token, "sendMessage",
+                         chat_id=chat_id,
+                         text=text,
+                         parse_mode="HTML",
+                         disable_web_page_preview=True)
 
 
 def handle_message(token: str, api_key: str, message: dict) -> None:
