@@ -13,6 +13,7 @@ from typing import Any
 import requests
 
 from .api import get_bid_detail_url
+from .storage import BidStorage
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +84,10 @@ class TelegramNotifier:
 
     SEND_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
-    def __init__(self, bot_token: str, chat_id: str):
+    def __init__(self, bot_token: str, storage: BidStorage, default_chat_id: str = ""):
         self.bot_token = bot_token
-        self.chat_id = chat_id
+        self.storage = storage
+        self.default_chat_id = default_chat_id
 
     def _format_detail_price(self, value) -> str:
         """상세 가격 포맷 (원 단위 포함)."""
@@ -150,36 +152,49 @@ class TelegramNotifier:
             f'🔗 <a href="{detail_url}">나라장터에서 보기</a>'
         )
 
+    def _get_chat_ids(self) -> list[str]:
+        """알림을 보낼 모든 구독자 chat_id 목록을 반환합니다."""
+        chat_ids = set(self.storage.get_all_subscribers())
+        if self.default_chat_id:
+            chat_ids.add(self.default_chat_id)
+        return list(chat_ids)
+
     def notify(self, bids: list[dict]) -> None:
         if not bids:
+            return
+
+        chat_ids = self._get_chat_ids()
+        if not chat_ids:
+            logger.warning("Telegram 구독자가 없습니다.")
             return
 
         for bid in bids:
             text = self._format_detail_message(bid)
             detail_url = get_bid_detail_url(bid)
 
-            url = self.SEND_URL.format(token=self.bot_token)
-            payload = {
-                "chat_id": self.chat_id,
-                "text": text,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-                "reply_markup": {
-                    "inline_keyboard": [[
-                        {
-                            "text": "🔗 나라장터에서 보기",
-                            "url": detail_url,
-                        },
-                    ]]
-                },
-            }
+            for chat_id in chat_ids:
+                url = self.SEND_URL.format(token=self.bot_token)
+                payload = {
+                    "chat_id": chat_id,
+                    "text": text,
+                    "parse_mode": "HTML",
+                    "disable_web_page_preview": True,
+                    "reply_markup": {
+                        "inline_keyboard": [[
+                            {
+                                "text": "🔗 나라장터에서 보기",
+                                "url": detail_url,
+                            },
+                        ]]
+                    },
+                }
 
-            try:
-                resp = requests.post(url, json=payload, timeout=10)
-                resp.raise_for_status()
-                logger.info(f"Telegram 알림 전송: {bid.get('bidNtceNm', '')}")
-            except requests.RequestException as e:
-                logger.error(f"Telegram 알림 실패: {e}")
+                try:
+                    resp = requests.post(url, json=payload, timeout=10)
+                    resp.raise_for_status()
+                    logger.info(f"Telegram 알림 전송 ({chat_id}): {bid.get('bidNtceNm', '')}")
+                except requests.RequestException as e:
+                    logger.error(f"Telegram 알림 실패 ({chat_id}): {e}")
 
 
 class SlackNotifier:
@@ -341,8 +356,10 @@ def create_notifiers(config: dict[str, Any]) -> list:
     if telegram_config.get("enabled", False):
         bot_token = telegram_config.get("bot_token", "")
         chat_id = telegram_config.get("chat_id", "")
-        if bot_token and chat_id and "YOUR" not in bot_token:
-            notifiers.append(TelegramNotifier(bot_token, chat_id))
+        db_path = config.get("db_path", "bid_history.db")
+        if bot_token and "YOUR" not in bot_token:
+            storage = BidStorage(db_path=db_path)
+            notifiers.append(TelegramNotifier(bot_token, storage, default_chat_id=chat_id))
         else:
             logger.warning("Telegram 설정이 완료되지 않았습니다.")
 

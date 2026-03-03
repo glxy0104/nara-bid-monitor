@@ -20,6 +20,8 @@ from pathlib import Path
 import requests
 import yaml
 
+from nara_monitor.storage import BidStorage
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -250,17 +252,24 @@ def handle_callback(token: str, api_key: str, callback_query: dict) -> None:
                          disable_web_page_preview=True)
 
 
-def handle_message(token: str, api_key: str, message: dict) -> None:
+def handle_message(token: str, api_key: str, message: dict, storage: BidStorage = None) -> None:
     """텍스트 메시지를 처리합니다."""
     chat_id = message.get("chat", {}).get("id")
     text = message.get("text", "").strip()
 
     if text == "/start":
+        # 구독자 등록
+        if storage:
+            username = message.get("from", {}).get("username", "")
+            storage.add_subscriber(str(chat_id), username)
+            logger.info(f"새 구독자 등록: {chat_id} (@{username})")
+
         telegram_request(token, "sendMessage",
                          chat_id=chat_id,
                          text="🔔 나라장터 입찰공고 모니터링 봇입니다.\n\n"
-                              "• 알림에서 <b>📋 상세 정보</b> 버튼을 누르면 세부 정보를 볼 수 있습니다.\n"
-                              "• 공고번호를 직접 입력해도 조회 가능합니다.\n"
+                              "✔️ 알림 구독이 완료되었습니다!\n"
+                              "매일 오전 9시에 영상 제작 관련 새 입찰공고를 알려드립니다.\n\n"
+                              "• 공고번호로 직접 조회도 가능합니다.\n"
                               "  예: <code>/detail R26BK01362685</code>",
                          parse_mode="HTML")
 
@@ -298,6 +307,8 @@ def process_pending_updates(config: dict) -> int:
     tg_config = config.get("notification", {}).get("telegram", {})
     token = tg_config.get("bot_token", "")
     api_key = config.get("api_key", "")
+    db_path = config.get("db_path", "bid_history.db")
+    storage = BidStorage(db_path=db_path)
 
     if not token:
         logger.error("Telegram bot_token이 설정되지 않았습니다.")
@@ -316,7 +327,7 @@ def process_pending_updates(config: dict) -> int:
             handle_callback(token, api_key, update["callback_query"])
             processed += 1
         elif "message" in update:
-            handle_message(token, api_key, update["message"])
+            handle_message(token, api_key, update["message"], storage=storage)
             processed += 1
 
     # offset 업데이트하여 처리된 메시지 제거
@@ -332,6 +343,8 @@ def run_bot(config: dict) -> None:
     tg_config = config.get("notification", {}).get("telegram", {})
     token = tg_config.get("bot_token", "")
     api_key = config.get("api_key", "")
+    db_path = config.get("db_path", "bid_history.db")
+    storage = BidStorage(db_path=db_path)
 
     if not token:
         logger.error("Telegram bot_token이 설정되지 않았습니다.")
@@ -367,7 +380,7 @@ def run_bot(config: dict) -> None:
                 if "callback_query" in update:
                     handle_callback(token, api_key, update["callback_query"])
                 elif "message" in update:
-                    handle_message(token, api_key, update["message"])
+                    handle_message(token, api_key, update["message"], storage=storage)
 
         except Exception as e:
             logger.error(f"봇 오류: {e}")

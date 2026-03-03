@@ -35,6 +35,13 @@ class BidStorage:
                     PRIMARY KEY (bid_ntce_no, bid_ntce_ord)
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS subscribers (
+                    chat_id TEXT PRIMARY KEY,
+                    username TEXT,
+                    subscribed_at TEXT NOT NULL
+                )
+            """)
 
     def _connect(self) -> sqlite3.Connection:
         """데이터베이스에 연결합니다."""
@@ -97,6 +104,20 @@ class BidStorage:
                 (cutoff.isoformat(),),
             )
             return cursor.fetchone()[0]
+
+    def add_subscriber(self, chat_id: str, username: str = "") -> None:
+        """구독자를 등록합니다."""
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR IGNORE INTO subscribers (chat_id, username, subscribed_at) VALUES (?, ?, ?)",
+                (str(chat_id), username, datetime.now().isoformat()),
+            )
+
+    def get_all_subscribers(self) -> list[str]:
+        """모든 구독자의 chat_id 목록을 반환합니다."""
+        with self._connect() as conn:
+            cursor = conn.execute("SELECT chat_id FROM subscribers")
+            return [row[0] for row in cursor.fetchall()]
 
     def cleanup_old(self, days: int = 90) -> int:
         """오래된 이력을 삭제합니다."""
