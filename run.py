@@ -58,6 +58,16 @@ def load_config(config_path: str) -> dict:
     # 환경변수가 있으면 config 값을 덮어쓰기 (GitHub Actions 용)
     if os.environ.get("NARA_API_KEY"):
         config["api_key"] = os.environ["NARA_API_KEY"]
+    if os.environ.get("NARA_KEYWORDS"):
+        config["keywords"] = [
+            kw.strip() for kw in os.environ["NARA_KEYWORDS"].split(",") if kw.strip()
+        ]
+    if os.environ.get("NARA_EXCLUDE_KEYWORDS"):
+        config["exclude_keywords"] = [
+            kw.strip()
+            for kw in os.environ["NARA_EXCLUDE_KEYWORDS"].split(",")
+            if kw.strip()
+        ]
     if os.environ.get("TELEGRAM_BOT_TOKEN"):
         config.setdefault("notification", {})
         config["notification"].setdefault("telegram", {})

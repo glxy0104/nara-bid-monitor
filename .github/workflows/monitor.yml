@@ -21,9 +21,24 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Restore bid history DB
+        uses: actions/cache/restore@v4
+        with:
+          path: bid_history.db
+          key: bid-history-${{ github.run_id }}
+          restore-keys: bid-history-
+
       - name: Run monitor
         env:
           NARA_API_KEY: ${{ secrets.NARA_API_KEY }}
+          NARA_KEYWORDS: "영상,제작"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python run.py --hours 24
+
+      - name: Save bid history DB
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: bid_history.db
+          key: bid-history-${{ github.run_id }}
