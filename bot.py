@@ -16,6 +16,7 @@ import signal
 import sys
 import time
 from pathlib import Path
+from typing import Optional
 
 import requests
 import yaml
@@ -30,7 +31,7 @@ logging.basicConfig(
 logger = logging.getLogger("telegram_bot")
 
 TELEGRAM_API = "https://api.telegram.org/bot{token}/{method}"
-NARA_API_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService/getBidPblancListInfoServc"
+NARA_API_URL = "https://apis.data.go.kr/1230000/ao/PubDataOpnStdService/getDataSetOpnStdBidPblancInfo"
 
 
 def load_config(config_path: str) -> dict:
@@ -54,7 +55,7 @@ def load_config(config_path: str) -> dict:
     return config
 
 
-def telegram_request(token: str, method: str, **kwargs) -> dict | None:
+def telegram_request(token: str, method: str, **kwargs) -> Optional[dict]:
     """Telegram Bot API를 호출합니다."""
     url = TELEGRAM_API.format(token=token, method=method)
     try:
@@ -69,7 +70,7 @@ def telegram_request(token: str, method: str, **kwargs) -> dict | None:
         return None
 
 
-def fetch_bid_detail(api_key: str, bid_no: str, bid_ord: str) -> dict | None:
+def fetch_bid_detail(api_key: str, bid_no: str, bid_ord: str) -> Optional[dict]:
     """나라장터 API에서 공고 상세 정보를 조회합니다.
 
     점진적으로 검색 범위를 넓히며 페이지네이션으로 특정 공고를 찾습니다.
@@ -93,9 +94,8 @@ def fetch_bid_detail(api_key: str, bid_no: str, bid_ord: str) -> dict | None:
                 "ServiceKey": api_key,
                 "pageNo": page,
                 "numOfRows": 999,
-                "inqryDiv": "1",
-                "inqryBgnDt": start_dt,
-                "inqryEndDt": end_dt,
+                "bidNtceBgnDt": start_dt,
+                "bidNtceEndDt": end_dt,
                 "type": "json",
             }
 

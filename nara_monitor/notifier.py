@@ -34,19 +34,28 @@ def _format_price(value) -> str:
         return str(value)
 
 
+def _format_datetime(bid: dict, date_key: str, time_key: str) -> str:
+    """날짜와 시간 필드를 결합합니다."""
+    date = bid.get(date_key, "")
+    time = bid.get(time_key, "")
+    if date and time:
+        return f"{date} {time}"
+    return date or ""
+
+
 def format_bid_summary(bid: dict) -> dict[str, str]:
     """입찰공고 정보를 읽기 쉬운 형태로 포맷합니다."""
     return {
         "공고명": bid.get("bidNtceNm", ""),
         "공고번호": f"{bid.get('bidNtceNo', '')}-{bid.get('bidNtceOrd', '')}",
         "공고기관": bid.get("ntceInsttNm", ""),
-        "수요기관": bid.get("dminsttNm", ""),
-        "공고일시": bid.get("bidNtceDt", ""),
-        "마감일시": bid.get("bidClseDt", ""),
+        "수요기관": bid.get("dmndInsttNm", ""),
+        "공고일시": _format_datetime(bid, "bidNtceDate", "bidNtceBgn"),
+        "마감일시": _format_datetime(bid, "bidClseDate", "bidClseTm"),
         "추정가격": _format_price(bid.get("presmptPrce", "")),
         "배정예산": _format_price(bid.get("asignBdgtAmt", "")),
         "계약방법": bid.get("cntrctCnclsMthdNm", ""),
-        "낙찰방법": bid.get("sucsfbidMthdNm", ""),
+        "낙찰방법": bid.get("bidwinrDcsnMthdNm", ""),
         "URL": get_bid_detail_url(bid),
     }
 
@@ -108,49 +117,63 @@ class TelegramNotifier:
         """공고 상세 정보를 메시지로 포맷합니다."""
         detail_url = get_bid_detail_url(bid)
 
-        # 첨부 문서 수집
-        docs = []
-        for i in range(1, 11):
-            url = bid.get(f"ntceSpecDocUrl{i}", "")
-            name = bid.get(f"ntceSpecFileNm{i}", "")
-            if url and name:
-                docs.append(f'  📎 <a href="{url}">{name}</a>')
-        docs_text = "\n".join(docs) if docs else "  (첨부 문서 없음)"
+        # 빈 값이 아닌 항목만 표시하는 헬퍼
+        def line(label: str, value: str) -> str:
+            if value and value.strip() and value != "-":
+                return f"  • {label}: {value}\n"
+            return ""
 
-        return (
-            f"🔔 <b>나라장터 입찰공고</b>\n"
-            f"\n"
-            f"📌 <b>{bid.get('bidNtceNm', '')}</b>\n"
-            f"\n"
-            f"<b>▸ 기본 정보</b>\n"
-            f"  • 공고번호: {bid.get('bidNtceNo', '')}-{bid.get('bidNtceOrd', '')}\n"
-            f"  • 공고종류: {bid.get('ntceKindNm', '')}\n"
-            f"  • 용역구분: {bid.get('srvceDivNm', '')}\n"
-            f"\n"
-            f"<b>▸ 기관 정보</b>\n"
-            f"  • 공고기관: {bid.get('ntceInsttNm', '')}\n"
-            f"  • 수요기관: {bid.get('dminsttNm', '')}\n"
-            f"  • 담당자: {bid.get('ntceInsttOfclNm', '')} ({bid.get('ntceInsttOfclTelNo', '')})\n"
-            f"\n"
-            f"<b>▸ 금액 정보</b>\n"
-            f"  • 배정예산: {self._format_detail_price(bid.get('asignBdgtAmt', ''))}\n"
-            f"  • 추정가격: {self._format_detail_price(bid.get('presmptPrce', ''))}\n"
-            f"\n"
-            f"<b>▸ 입찰 정보</b>\n"
-            f"  • 계약방법: {bid.get('cntrctCnclsMthdNm', '')}\n"
-            f"  • 낙찰방법: {bid.get('sucsfbidMthdNm', '')}\n"
-            f"  • 입찰방식: {bid.get('bidMethdNm', '')}\n"
-            f"\n"
-            f"<b>▸ 일정</b>\n"
-            f"  • 공고일시: {bid.get('bidNtceDt', '')}\n"
-            f"  • 입찰마감: {bid.get('bidClseDt', '')}\n"
-            f"  • 개찰일시: {bid.get('opengDt', '')}\n"
-            f"\n"
-            f"<b>▸ 첨부 문서</b>\n"
-            f"{docs_text}\n"
-            f"\n"
-            f'🔗 <a href="{detail_url}">나라장터에서 보기</a>'
-        )
+        ntce_dt = _format_datetime(bid, "bidNtceDate", "bidNtceBgn")
+        close_dt = _format_datetime(bid, "bidClseDate", "bidClseTm")
+        openg_dt = _format_datetime(bid, "opengDate", "opengTm")
+        担当 = bid.get("ntceInsttOfclNm", "")
+        tel = bid.get("ntceInsttOfclTel", "")
+        담당자 = f"{担当} ({tel})" if 担当 and tel else 担当
+
+        lines = "🔔 <b>나라장터 입찰공고</b>\n\n"
+        lines += f"📌 <b>{bid.get('bidNtceNm', '')}</b>\n\n"
+
+        # 기본 정보
+        section = ""
+        section += line("공고번호", f"{bid.get('bidNtceNo', '')}-{bid.get('bidNtceOrd', '')}")
+        section += line("공고상태", bid.get("bidNtceSttusNm", ""))
+        section += line("업무구분", bid.get("bsnsDivNm", ""))
+        if section:
+            lines += f"<b>▸ 기본 정보</b>\n{section}\n"
+
+        # 기관 정보
+        section = ""
+        section += line("공고기관", bid.get("ntceInsttNm", ""))
+        section += line("수요기관", bid.get("dmndInsttNm", ""))
+        section += line("담당자", 담당자)
+        if section:
+            lines += f"<b>▸ 기관 정보</b>\n{section}\n"
+
+        # 금액 정보
+        section = ""
+        section += line("배정예산", self._format_detail_price(bid.get("asignBdgtAmt", "")))
+        section += line("추정가격", self._format_detail_price(bid.get("presmptPrce", "")))
+        if section:
+            lines += f"<b>▸ 금액 정보</b>\n{section}\n"
+
+        # 입찰 정보
+        section = ""
+        section += line("계약방법", bid.get("cntrctCnclsMthdNm", ""))
+        section += line("낙찰방법", bid.get("bidwinrDcsnMthdNm", ""))
+        section += line("예가방법", bid.get("rsrvtnPrceDcsnMthdNm", ""))
+        if section:
+            lines += f"<b>▸ 입찰 정보</b>\n{section}\n"
+
+        # 일정
+        section = ""
+        section += line("공고일시", ntce_dt)
+        section += line("입찰마감", close_dt)
+        section += line("개찰일시", openg_dt)
+        if section:
+            lines += f"<b>▸ 일정</b>\n{section}\n"
+
+        lines += f'🔗 <a href="{detail_url}">나라장터에서 보기</a>'
+        return lines
 
     def _get_chat_ids(self) -> list[str]:
         """알림을 보낼 모든 구독자 chat_id 목록을 반환합니다."""

@@ -8,7 +8,7 @@ API 문서: https://www.data.go.kr/data/15129394/openapi.do
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Optional, Tuple
 from urllib.parse import urlencode
 
 import requests
@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 
 # 업무별 API 엔드포인트 매핑
 BID_TYPE_ENDPOINTS = {
-    "services": "getBidPblancListInfoServc",      # 용역
-    "goods": "getBidPblancListInfoThng",           # 물품
-    "construction": "getBidPblancListInfoCnstwk",  # 공사
-    "foreign": "getBidPblancListInfoFrgcpt",       # 외자
+    "services": "getDataSetOpnStdBidPblancInfo",      # 용역
+    "goods": "getDataSetOpnStdBidPblancInfo",          # 물품
+    "construction": "getDataSetOpnStdBidPblancInfo",   # 공사
+    "foreign": "getDataSetOpnStdBidPblancInfo",        # 외자
 }
 
-BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
+BASE_URL = "https://apis.data.go.kr/1230000/ao/PubDataOpnStdService"
 MAX_ROWS_PER_PAGE = 999
 
 
@@ -39,8 +39,8 @@ class NaraJangterAPI:
         self,
         bid_type: str = "services",
         hours: int = 24,
-        start_dt: datetime | None = None,
-        end_dt: datetime | None = None,
+        start_dt: Optional[datetime] = None,
+        end_dt: Optional[datetime] = None,
     ) -> list[dict[str, Any]]:
         """지정 기간 내 입찰공고 목록을 조회합니다.
 
@@ -103,15 +103,14 @@ class NaraJangterAPI:
         start_dt: datetime,
         end_dt: datetime,
         page: int = 1,
-    ) -> tuple[list[dict] | None, int]:
+    ) -> Tuple[Optional[list[dict]], int]:
         """API에서 한 페이지의 입찰공고를 조회합니다."""
         params = {
             "ServiceKey": self.api_key,
             "pageNo": page,
             "numOfRows": MAX_ROWS_PER_PAGE,
-            "inqryDiv": "1",  # 1: 공고일시 기준 조회
-            "inqryBgnDt": start_dt.strftime("%Y%m%d%H%M"),
-            "inqryEndDt": end_dt.strftime("%Y%m%d%H%M"),
+            "bidNtceBgnDt": start_dt.strftime("%Y%m%d%H%M"),
+            "bidNtceEndDt": end_dt.strftime("%Y%m%d%H%M"),
             "type": "json",
         }
 
@@ -158,7 +157,7 @@ class NaraJangterAPI:
 def filter_bids_by_keywords(
     bids: list[dict],
     keywords: list[str],
-    exclude_keywords: list[str] | None = None,
+    exclude_keywords: Optional[list[str]] = None,
 ) -> list[dict]:
     """입찰공고 목록에서 키워드로 필터링합니다.
 
