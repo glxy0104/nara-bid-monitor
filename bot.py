@@ -257,7 +257,7 @@ def handle_message(token: str, api_key: str, message: dict, storage: BidStorage 
     chat_id = message.get("chat", {}).get("id")
     text = message.get("text", "").strip()
 
-    if text == "/start":
+    if text in ("/start", "시작"):
         # 구독자 등록
         if storage:
             username = message.get("from", {}).get("username", "")
