@@ -21,7 +21,7 @@ from typing import Optional
 import requests
 import yaml
 
-from nara_monitor.storage import BidStorage
+from nara_monitor.storage import BidStorage, get_subscriber_store
 
 logging.basicConfig(
     level=logging.INFO,
@@ -307,8 +307,7 @@ def process_pending_updates(config: dict) -> int:
     tg_config = config.get("notification", {}).get("telegram", {})
     token = tg_config.get("bot_token", "")
     api_key = config.get("api_key", "")
-    db_path = config.get("db_path", "bid_history.db")
-    storage = BidStorage(db_path=db_path)
+    storage = get_subscriber_store()
 
     if not token:
         logger.error("Telegram bot_token이 설정되지 않았습니다.")

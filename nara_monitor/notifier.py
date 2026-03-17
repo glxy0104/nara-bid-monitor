@@ -13,7 +13,7 @@ from typing import Any
 import requests
 
 from .api import get_bid_detail_url
-from .storage import BidStorage
+from .storage import BidStorage, get_subscriber_store
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +93,7 @@ class TelegramNotifier:
 
     SEND_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
-    def __init__(self, bot_token: str, storage: BidStorage, default_chat_id: str = ""):
+    def __init__(self, bot_token: str, storage, default_chat_id: str = ""):
         self.bot_token = bot_token
         self.storage = storage
         self.default_chat_id = default_chat_id
@@ -379,9 +379,8 @@ def create_notifiers(config: dict[str, Any]) -> list:
     if telegram_config.get("enabled", False):
         bot_token = telegram_config.get("bot_token", "")
         chat_id = telegram_config.get("chat_id", "")
-        db_path = config.get("db_path", "bid_history.db")
         if bot_token and "YOUR" not in bot_token:
-            storage = BidStorage(db_path=db_path)
+            storage = get_subscriber_store()
             notifiers.append(TelegramNotifier(bot_token, storage, default_chat_id=chat_id))
         else:
             logger.warning("Telegram 설정이 완료되지 않았습니다.")
