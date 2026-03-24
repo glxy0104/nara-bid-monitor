@@ -58,6 +58,13 @@ def load_config(config_path: str) -> dict:
     # 환경변수가 있으면 config 값을 덮어쓰기 (GitHub Actions 용)
     if os.environ.get("NARA_API_KEY"):
         config["api_key"] = os.environ["NARA_API_KEY"]
+    if os.environ.get("NARA_KEYWORD_GROUPS"):
+        # 형식: "영상+제작|홍보영상" → [["영상","제작"], ["홍보영상"]]
+        config["keyword_groups"] = [
+            [kw.strip() for kw in group.split("+") if kw.strip()]
+            for group in os.environ["NARA_KEYWORD_GROUPS"].split("|")
+            if group.strip()
+        ]
     if os.environ.get("NARA_KEYWORDS"):
         config["keywords"] = [
             kw.strip() for kw in os.environ["NARA_KEYWORDS"].split(",") if kw.strip()
@@ -101,6 +108,7 @@ def check_bids(config: dict, storage: BidStorage, notifiers: list) -> int:
     hours = config.get("check_hours", 24)
     bid_type = config.get("bid_type", "services")
     keywords = config.get("keywords", [])
+    keyword_groups = config.get("keyword_groups", [])
     exclude_keywords = config.get("exclude_keywords", [])
 
     logger.info(f"입찰공고 조회 시작 (최근 {hours}시간, 유형: {bid_type})")
@@ -117,7 +125,7 @@ def check_bids(config: dict, storage: BidStorage, notifiers: list) -> int:
         return 0
 
     # 키워드 필터링
-    matched = filter_bids_by_keywords(bids, keywords, exclude_keywords)
+    matched = filter_bids_by_keywords(bids, keywords, exclude_keywords, keyword_groups)
     logger.info(f"키워드 매칭: {len(matched)}건")
 
     if not matched:

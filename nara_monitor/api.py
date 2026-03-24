@@ -158,18 +158,23 @@ def filter_bids_by_keywords(
     bids: list[dict],
     keywords: list[str],
     exclude_keywords: Optional[list[str]] = None,
+    keyword_groups: Optional[list[list[str]]] = None,
 ) -> list[dict]:
     """입찰공고 목록에서 키워드로 필터링합니다.
 
     Args:
         bids: 입찰공고 목록
-        keywords: 포함 키워드 (모든 키워드가 포함되어야 매칭 - AND 조건)
+        keywords: 포함 키워드 (모든 키워드가 포함되어야 매칭 - AND 조건, keyword_groups 미사용 시)
         exclude_keywords: 제외 키워드 (하나라도 포함되면 제외)
+        keyword_groups: 키워드 그룹 목록 (OR 조건). 각 그룹 내부는 AND 조건.
+                        예: [["영상", "제작"], ["홍보영상"]] → "영상"AND"제작" OR "홍보영상"
 
     Returns:
         매칭된 입찰공고 목록
     """
-    if not keywords:
+    # keyword_groups가 있으면 우선 사용, 없으면 기존 keywords를 단일 그룹으로
+    groups = keyword_groups if keyword_groups else ([keywords] if keywords else [])
+    if not groups or all(len(g) == 0 for g in groups):
         return bids
 
     exclude_keywords = exclude_keywords or []
@@ -186,9 +191,11 @@ def filter_bids_by_keywords(
         if any(kw.lower() in bid_name_lower for kw in exclude_keywords):
             continue
 
-        # 포함 키워드 확인 (모든 키워드가 포함되어야 매칭)
-        if all(kw.lower() in bid_name_lower for kw in keywords):
-            matched.append(bid)
+        # 키워드 그룹 확인 (OR 조건: 하나의 그룹이라도 전부 매칭되면 OK)
+        for group in groups:
+            if group and all(kw.lower() in bid_name_lower for kw in group):
+                matched.append(bid)
+                break
 
     return matched
 

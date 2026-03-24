@@ -33,7 +33,7 @@ jobs:
       - name: Run monitor
         env:
           NARA_API_KEY: ${{ secrets.NARA_API_KEY }}
-          NARA_KEYWORDS: "영상,제작"
+          NARA_KEYWORD_GROUPS: "영상+제작|홍보영상"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
