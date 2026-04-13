@@ -257,12 +257,13 @@ def handle_message(token: str, api_key: str, message: dict, storage: BidStorage 
     chat_id = message.get("chat", {}).get("id")
     text = message.get("text", "").strip()
 
+    # 모든 메시지에 대해 구독자 자동 등록 (처음 보내는 사람만 등록됨)
+    if storage:
+        username = message.get("from", {}).get("username", "")
+        storage.add_subscriber(str(chat_id), username)
+
     if text in ("/start", "시작"):
-        # 구독자 등록
-        if storage:
-            username = message.get("from", {}).get("username", "")
-            storage.add_subscriber(str(chat_id), username)
-            logger.info(f"새 구독자 등록: {chat_id} (@{username})")
+        logger.info(f"구독 요청: {chat_id} (@{message.get('from', {}).get('username', '')})")
 
         telegram_request(token, "sendMessage",
                          chat_id=chat_id,

@@ -52,17 +52,20 @@ class GitHubSubscriberStore:
     def _save(self, subscribers: list[dict]) -> None:
         """구독자 목록을 GitHub Variable에 저장합니다."""
         url = self.API_BASE.format(repo=self.repo, name=self.VAR_NAME)
+        value = json.dumps(subscribers, ensure_ascii=False)
         try:
             resp = requests.patch(
                 url,
                 headers=self.headers,
-                json={"value": json.dumps(subscribers, ensure_ascii=False)},
+                json={"value": value},
                 timeout=10,
             )
             if resp.status_code == 404:
-                self._create_variable(json.dumps(subscribers, ensure_ascii=False))
+                self._create_variable(value)
+            elif resp.status_code >= 400:
+                logger.error(f"구독자 목록 저장 실패 (HTTP {resp.status_code}): {resp.text}")
             else:
-                resp.raise_for_status()
+                logger.info(f"구독자 목록 저장 완료 ({len(subscribers)}명)")
         except Exception as e:
             logger.error(f"구독자 목록 저장 실패: {e}")
 
