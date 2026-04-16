@@ -11,85 +11,44 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-import requests
-
 logger = logging.getLogger(__name__)
 
 
-class GitHubSubscriberStore:
-    """GitHub Repository Variable을 사용하여 구독자를 영구 저장합니다.
+class FileSubscriberStore:
+    """subscribers.json 파일로 구독자를 영구 저장합니다.
 
-    GitHub Actions 환경에서 매 실행마다 DB가 초기화되는 문제를 해결합니다.
+    GitHub Actions에서도 파일을 커밋하여 영구 보존합니다.
     """
 
-    API_BASE = "https://api.github.com/repos/{repo}/actions/variables/{name}"
-    VAR_NAME = "SUBSCRIBERS"
-
-    def __init__(self, repo: str, token: str):
-        self.repo = repo
-        self.token = token
-        self.headers = {
-            "Authorization": f"Bearer {token}",
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
+    def __init__(self, file_path: str = "subscribers.json"):
+        self.file_path = Path(file_path)
+        if not self.file_path.exists():
+            self._save([])
 
     def _load(self) -> list[dict]:
-        """GitHub Variable에서 구독자 목록을 불러옵니다."""
-        url = self.API_BASE.format(repo=self.repo, name=self.VAR_NAME)
+        """파일에서 구독자 목록을 불러옵니다."""
         try:
-            resp = requests.get(url, headers=self.headers, timeout=10)
-            if resp.status_code == 404:
-                # 변수가 아직 없으면 생성
-                self._create_variable("[]")
-                return []
-            resp.raise_for_status()
-            return json.loads(resp.json().get("value", "[]"))
+            if self.file_path.exists():
+                with open(self.file_path, "r", encoding="utf-8") as f:
+                    return json.load(f)
+            return []
         except Exception as e:
             logger.error(f"구독자 목록 로드 실패: {e}")
             return []
 
     def _save(self, subscribers: list[dict]) -> None:
-        """구독자 목록을 GitHub Variable에 저장합니다."""
-        url = self.API_BASE.format(repo=self.repo, name=self.VAR_NAME)
-        value = json.dumps(subscribers, ensure_ascii=False)
+        """구독자 목록을 파일에 저장합니다."""
         try:
-            resp = requests.patch(
-                url,
-                headers=self.headers,
-                json={"value": value},
-                timeout=10,
-            )
-            if resp.status_code == 404:
-                self._create_variable(value)
-            elif resp.status_code >= 400:
-                logger.error(f"구독자 목록 저장 실패 (HTTP {resp.status_code}): {resp.text}")
-            else:
-                logger.info(f"구독자 목록 저장 완료 ({len(subscribers)}명)")
+            with open(self.file_path, "w", encoding="utf-8") as f:
+                json.dump(subscribers, f, ensure_ascii=False, indent=2)
+            logger.info(f"구독자 목록 저장 완료 ({len(subscribers)}명)")
         except Exception as e:
             logger.error(f"구독자 목록 저장 실패: {e}")
-
-    def _create_variable(self, value: str) -> None:
-        """GitHub Variable을 새로 생성합니다."""
-        url = f"https://api.github.com/repos/{self.repo}/actions/variables"
-        try:
-            resp = requests.post(
-                url,
-                headers=self.headers,
-                json={"name": self.VAR_NAME, "value": value},
-                timeout=10,
-            )
-            resp.raise_for_status()
-            logger.info("SUBSCRIBERS 변수 생성 완료")
-        except Exception as e:
-            logger.error(f"SUBSCRIBERS 변수 생성 실패: {e}")
 
     def add_subscriber(self, chat_id: str, username: str = "") -> None:
         """구독자를 등록합니다."""
         subscribers = self._load()
-        # 이미 등록된 구독자인지 확인
         if any(s["chat_id"] == chat_id for s in subscribers):
-            logger.info(f"이미 등록된 구독자: {chat_id}")
             return
         subscribers.append({
             "chat_id": chat_id,
@@ -106,14 +65,11 @@ class GitHubSubscriberStore:
 
 
 def get_subscriber_store():
-    """실행 환경에 맞는 구독자 저장소를 반환합니다."""
-    repo = os.environ.get("GITHUB_REPOSITORY")
-    token = os.environ.get("GITHUB_TOKEN")
-    if repo and token:
-        logger.info(f"GitHub 구독자 저장소 사용: {repo}")
-        return GitHubSubscriberStore(repo=repo, token=token)
-    # 로컬 환경에서는 SQLite 사용
-    return BidStorage()
+    """구독자 저장소를 반환합니다."""
+    # 스크립트 위치 기준으로 subscribers.json 경로 결정
+    base_dir = Path(__file__).parent.parent
+    file_path = base_dir / "subscribers.json"
+    return FileSubscriberStore(file_path=str(file_path))
 
 
 class BidStorage:

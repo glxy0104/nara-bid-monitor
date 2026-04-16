@@ -9,8 +9,6 @@ on:
 jobs:
   check-bids:
     runs-on: ubuntu-latest
-    permissions:
-      actions: write
 
     steps:
       - uses: actions/checkout@v4
@@ -36,7 +34,6 @@ jobs:
           NARA_KEYWORD_GROUPS: "영상+제작|홍보영상"
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python run.py --hours 24
 
       - name: Save bid history DB

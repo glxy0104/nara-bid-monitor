@@ -14,7 +14,7 @@ jobs:
   process-requests:
     runs-on: ubuntu-latest
     permissions:
-      actions: write
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -32,5 +32,12 @@ jobs:
           NARA_API_KEY: ${{ secrets.NARA_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python bot.py --once
+
+      - name: Commit subscriber changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add subscribers.json
+          git diff --cached --quiet || git commit -m "chore: 구독자 목록 업데이트"
+          git push
