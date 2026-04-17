@@ -172,7 +172,8 @@ class TelegramNotifier:
         if section:
             lines += f"<b>▸ 일정</b>\n{section}\n"
 
-        lines += f'🔗 <a href="{detail_url}">나라장터에서 보기</a>'
+        lines += f'🔗 <a href="{detail_url}">나라장터에서 보기</a>\n'
+        lines += f'📎 첨부서류는 위 링크에서 확인하세요'
         return lines
 
     def _get_chat_ids(self) -> list[str]:
