@@ -25,8 +25,8 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: bid_history.db
-          key: bid-history-${{ github.run_id }}
-          restore-keys: bid-history-
+          key: bid-history-db
+          restore-keys: bid-history-db
 
       - name: Run monitor
         env:
@@ -37,8 +37,15 @@ jobs:
         run: python run.py --hours 24
 
       - name: Save bid history DB
+        if: always()
+        run: |
+          gh cache delete bid-history-db --repo ${{ github.repository }} || true
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Upload bid history DB
         uses: actions/cache/save@v4
         if: always()
         with:
           path: bid_history.db
-          key: bid-history-${{ github.run_id }}
+          key: bid-history-db
