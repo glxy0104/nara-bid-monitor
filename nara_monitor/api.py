@@ -26,6 +26,15 @@ BID_TYPE_ENDPOINTS = {
 BASE_URL = "https://apis.data.go.kr/1230000/ao/PubDataOpnStdService"
 MAX_ROWS_PER_PAGE = 999
 
+# 첨부파일 조회용 구 API (업무별 엔드포인트)
+BID_DETAIL_BASE_URL = "https://apis.data.go.kr/1230000/ad/BidPublicInfoService"
+BID_DETAIL_ENDPOINTS = {
+    "services": "getBidPblancListInfoServc",      # 용역
+    "goods": "getBidPblancListInfoThng",           # 물품
+    "construction": "getBidPblancListInfoCnstwk",  # 공사
+    "foreign": "getBidPblancListInfoFrgcpt",       # 외자
+}
+
 
 class NaraJangterAPI:
     """나라장터 입찰공고 API 클라이언트."""
@@ -96,6 +105,73 @@ class NaraJangterAPI:
             items = self.fetch_bids(bid_type=bid_type, hours=hours)
             all_items.extend(items)
         return all_items
+
+    def fetch_attachments(
+        self,
+        bid_ntce_no: str,
+        bid_type: str = "services",
+        hours: int = 24,
+    ) -> list[dict[str, str]]:
+        """구 API(BidPublicInfoService)에서 첨부 문서 정보를 조회합니다.
+
+        Returns:
+            [{"name": 파일명, "url": 다운로드URL}, ...] 형식의 리스트
+        """
+        endpoint = BID_DETAIL_ENDPOINTS.get(bid_type, "getBidPblancListInfoServc")
+        url = f"{BID_DETAIL_BASE_URL}/{endpoint}"
+
+        now = datetime.now()
+        start_dt = (now - timedelta(hours=hours)).strftime("%Y%m%d%H%M")
+        end_dt = now.strftime("%Y%m%d%H%M")
+
+        params = {
+            "ServiceKey": self.api_key,
+            "pageNo": 1,
+            "numOfRows": 10,
+            "inqryDiv": 2,
+            "bidNtceNo": bid_ntce_no,
+            "inqryBgnDt": start_dt,
+            "inqryEndDt": end_dt,
+            "type": "json",
+        }
+
+        try:
+            resp = self.session.get(url, params=params, timeout=15)
+            if resp.status_code != 200:
+                logger.warning(f"첨부파일 조회 실패 ({bid_ntce_no}): HTTP {resp.status_code}")
+                return []
+            data = resp.json()
+        except (requests.RequestException, ValueError) as e:
+            logger.warning(f"첨부파일 조회 실패 ({bid_ntce_no}): {e}")
+            return []
+
+        items = data.get("response", {}).get("body", {}).get("items", [])
+        if isinstance(items, dict):
+            items = [items]
+        if not items:
+            return []
+
+        # 첫 번째 아이템의 첨부 정보 추출
+        item = items[0]
+        attachments = []
+        for i in range(1, 11):
+            name = item.get(f"ntceSpecFileNm{i}", "")
+            file_url = item.get(f"ntceSpecDocUrl{i}", "")
+            if name and file_url:
+                attachments.append({"name": name, "url": file_url})
+        return attachments
+
+    def enrich_with_attachments(
+        self,
+        bids: list[dict],
+        bid_type: str = "services",
+        hours: int = 24,
+    ) -> None:
+        """입찰공고 리스트에 첨부파일 정보를 덧붙입니다 (in-place)."""
+        for bid in bids:
+            bid_no = bid.get("bidNtceNo", "")
+            if bid_no:
+                bid["attachments"] = self.fetch_attachments(bid_no, bid_type=bid_type, hours=hours)
 
     def _fetch_page(
         self,

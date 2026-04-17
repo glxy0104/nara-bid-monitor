@@ -172,8 +172,13 @@ class TelegramNotifier:
         if section:
             lines += f"<b>▸ 일정</b>\n{section}\n"
 
-        lines += f'🔗 <a href="{detail_url}">나라장터에서 보기</a>\n'
-        lines += f'📎 첨부서류는 위 링크에서 확인하세요'
+        # 첨부 문서
+        attachments = bid.get("attachments", [])
+        if attachments:
+            docs = "\n".join(f'  📎 <a href="{a["url"]}">{a["name"]}</a>' for a in attachments)
+            lines += f"<b>▸ 첨부 문서</b>\n{docs}\n\n"
+
+        lines += f'🔗 <a href="{detail_url}">나라장터에서 보기</a>'
         return lines
 
     def _get_chat_ids(self) -> list[str]:

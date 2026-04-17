@@ -140,6 +140,10 @@ def check_bids(config: dict, storage: BidStorage, notifiers: list) -> int:
         send_notifications(notifiers, [])
         return 0
 
+    # 새 공고에만 첨부파일 정보 조회 (구 API 호출)
+    logger.info(f"첨부파일 조회 중 ({len(new_bids)}건)...")
+    api.enrich_with_attachments(new_bids, bid_type=bid_type, hours=hours)
+
     # 알림 전송
     send_notifications(notifiers, new_bids)
 
