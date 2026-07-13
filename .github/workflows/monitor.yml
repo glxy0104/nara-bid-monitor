@@ -9,6 +9,8 @@ on:
 jobs:
   check-bids:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -49,3 +51,15 @@ jobs:
         with:
           path: bid_history.db
           key: bid-history-db
+
+      # 60일 무활동 시 GitHub가 스케줄 워크플로우를 자동 비활성화하는 것을 방지
+      - name: Keepalive commit
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .last-run
+          git add .last-run
+          git commit -m "chore: keepalive (마지막 실행 기록)" || true
+          git pull --rebase origin master || true
+          git push || true
