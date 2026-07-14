@@ -3,7 +3,8 @@
 > 마지막 업데이트: 2026-07-13
 > 이 문서는 새 계정/새 담당자가 이 프로젝트를 이어받기 위한 안내서입니다.
 > **비밀값(API 키, 봇 토큰)은 이 문서에 없습니다** — 저장소가 공개(public)이기 때문입니다.
-> 같은 컴퓨터라면 `/Users/Shared/nara-handoff/` 폴더에서 `config.yaml`을 복사하세요.
+> 같은 맥의 같은 사용자 계정이라면 `~/nara-bid-monitor/config.yaml`이 이미 존재합니다(복사 불필요).
+> 비밀값은 `/Users/Shared` 같은 공용 폴더에 절대 두지 마세요(모든 로컬 계정이 읽음).
 
 ## 1. 프로젝트 개요
 
@@ -39,24 +40,29 @@
 ### 비밀값 위치
 
 - **GitHub Actions**: 리포 Settings → Secrets → `NARA_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (이미 등록됨, 워크플로우가 사용)
-- **로컬 실행용**: `/Users/Shared/nara-handoff/config.yaml` (같은 맥의 이전 계정에서 복사해둠)
+- **로컬 실행용**: `~/nara-bid-monitor/config.yaml` (같은 맥·같은 사용자면 이미 존재. gitignore라 리포에는 안 올라감)
 - 텔레그램 봇: `@Naratestbot` (봇 이름 NaraAlarm)
 
 ## 3. 새 계정에서 시작하기
 
+> **같은 맥·같은 사용자 계정인 경우**: 리포(`~/nara-bid-monitor`)와 `config.yaml`이 이미 있으므로
+> 아래 1)·2) 클론 단계는 건너뛰고, 새 GitHub 계정으로 `gh auth login`만 다시 하면 됩니다.
+> (실제로 바꿔야 하는 건 push 권한뿐 — 아래 "push 권한" 참고)
+
 ```bash
-# 1) GitHub CLI 설치 + 로그인 (팀 계정으로)
+# 1) GitHub CLI 설치 + 로그인 (새 계정으로)
 brew install gh
 gh auth login --web --git-protocol https
 
-# 2) 클론
+# 2) (리포가 없을 때만) 클론
 git clone https://github.com/glxy0104/nara-bid-monitor.git ~/nara-bid-monitor
 cd ~/nara-bid-monitor
 
 # 3) 로컬 실행이 필요할 때만: 가상환경 + config
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-cp /Users/Shared/nara-handoff/config.yaml ./config.yaml
+# config.yaml이 이미 있으면 그대로 사용. 없을 때만 config.example.yaml을 복사해 값 채우기
+[ -f config.yaml ] || cp config.yaml.example config.yaml
 
 # 4) 로컬 테스트 실행 (텔레그램으로 실제 발송되니 주의)
 python run.py --hours 24
